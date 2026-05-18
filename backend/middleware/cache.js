@@ -1,6 +1,7 @@
 import redis from '../config/redis.js';
 
 const cache = (ttlSeconds = 60) => async (req, res, next) => {
+  if (ttlSeconds === 0) return next();
   const key = `cache:${req.originalUrl}`;
 
   try {

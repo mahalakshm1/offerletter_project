@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react';
 import api from '../api';
 
 const STATUS_COLORS = { draft: 'badge-draft', generated: 'badge-generated', sent: 'badge-sent', viewed: 'badge-viewed', accepted: 'badge-accepted', rejected: 'badge-rejected', expired: 'badge-expired' };
-const STATUSES = ['draft', 'generated', 'sent', 'viewed', 'accepted', 'rejected', 'expired'];
+
+const STATUS_TRANSITIONS = {
+  draft:     ['generated'],
+  generated: ['sent'],
+  sent:      ['viewed'],
+  viewed:    ['accepted', 'rejected'],
+  accepted:  ['expired'],
+  rejected:  [],
+  expired:   [],
+};
 
 export default function Offers() {
   const [offers, setOffers] = useState([]);
@@ -64,7 +73,7 @@ export default function Offers() {
         <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>Filter:</span>
         <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); load(e.target.value); }}>
           <option value="">All Statuses</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+          {Object.keys(STATUS_TRANSITIONS).map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
       </div>
 
@@ -86,13 +95,20 @@ export default function Offers() {
                 <td style={{ color: '#64748b' }}>{o.doj ? new Date(o.doj).toLocaleDateString() : <span style={{ color: '#cbd5e1' }}>—</span>}</td>
                 <td>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <select
-                      value={o.status}
-                      onChange={(e) => updateStatus(o.id, e.target.value)}
-                      style={{ padding: '0.28rem 0.5rem', fontSize: '0.75rem', marginBottom: 0, width: 'auto', borderRadius: '6px' }}
-                    >
-                      {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    {STATUS_TRANSITIONS[o.status]?.length > 0 ? (
+                      STATUS_TRANSITIONS[o.status].map((next) => (
+                        <button
+                          key={next}
+                          className="btn btn-sm"
+                          style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', fontSize: '0.72rem', fontWeight: 600, color: '#334155' }}
+                          onClick={() => updateStatus(o.id, next)}
+                        >
+                          → {next}
+                        </button>
+                      ))
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>No transitions</span>
+                    )}
                     <button className="btn btn-primary btn-sm" onClick={() => sendEmail(o.id)} title="Send Email">📨</button>
                     <button className="btn btn-success btn-sm" onClick={() => downloadPdf(o.id)} title="Download PDF">📥 PDF</button>
                   </div>

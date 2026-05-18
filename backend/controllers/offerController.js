@@ -1,6 +1,7 @@
 import { Offer, OfferVersion, Candidate, Template } from '../models/index.js';
 import fillPlaceholders from '../utils/fillPlaceholders.js';
 import { STATUS_TRANSITIONS } from '../utils/offerSchemas.js';
+import { invalidateCache } from '../middleware/cache.js';
 
 export const getAllOffers = async (req, res) => {
   const { status } = req.query;
@@ -72,6 +73,7 @@ export const updateOfferStatus = async (req, res) => {
   }
 
   await offer.update({ status });
+  await invalidateCache('/api/analytics*');
   res.json({ message: 'Status updated', offer });
 };
 
