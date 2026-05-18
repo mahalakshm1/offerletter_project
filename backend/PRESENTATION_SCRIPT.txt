@@ -1,0 +1,622 @@
+================================================================
+   AI-POWERED OFFER LETTER BUILDER — BACKEND PRESENTATION SCRIPT
+================================================================
+   Project  : Offer Letter Builder
+   Backend  : Node.js + Express.js
+   Database : PostgreSQL (Neon Cloud)
+   Cache    : Redis
+   Auth     : JWT
+================================================================
+
+
+----------------------------------------------------------------
+SLIDE 1 — INTRODUCTION
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Good [morning/afternoon] everyone.
+
+Today I'm presenting the backend of an AI-Powered Offer Letter
+Builder — a full-stack web application designed to help HR teams
+and Recruiters create, manage, send, and track professional job
+offer letters — all from one platform.
+
+The backend is built entirely with Node.js and Express.js,
+connected to a cloud PostgreSQL database hosted on Neon,
+with Redis for caching and JWT for secure authentication.
+
+Let me walk you through how the entire system works."
+
+
+----------------------------------------------------------------
+SLIDE 2 — THE PROBLEM WE ARE SOLVING
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"In most companies today, HR teams create offer letters manually.
+They copy-paste from Word documents, fill in candidate details
+by hand, send emails manually, and have no way to track whether
+the candidate has viewed or accepted the offer.
+
+This system solves all of that.
+
+With this backend, HR can:
+- Create reusable offer letter templates with placeholders
+- Add candidates individually or upload hundreds via CSV
+- Generate personalized offer letters in one click
+- Send or schedule emails automatically
+- Download offer letters as PDF
+- Track the status of every offer in real time
+- View analytics and reports
+- And everything is logged for audit purposes"
+
+
+----------------------------------------------------------------
+SLIDE 3 — TECH STACK
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Let me quickly cover the technology choices.
+
+Runtime     : Node.js v22 — fast, non-blocking, perfect for APIs
+Framework   : Express.js v5 — latest version with native async
+              error handling, no need for try-catch wrappers
+Database    : PostgreSQL hosted on Neon — serverless cloud
+              Postgres, connects over SSL, scales automatically
+ORM         : Sequelize v6 — maps JavaScript objects to DB tables,
+              handles relationships and migrations
+Cache       : Redis via ioredis — caches frequently read data
+              like templates and analytics to reduce DB load
+Auth        : JSON Web Tokens (JWT) — stateless authentication,
+              no sessions needed
+Email       : Nodemailer — sends emails via Gmail SMTP or SendGrid
+PDF         : Puppeteer — headless Chrome that renders HTML to PDF
+Storage     : AWS S3 — stores generated PDF files in the cloud
+Validation  : Joi — validates every incoming request body
+Scheduler   : node-cron — runs background jobs every minute
+              to process scheduled emails"
+
+
+----------------------------------------------------------------
+SLIDE 4 — PROJECT FOLDER STRUCTURE
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"The project follows a clean, layered architecture.
+
+backend/
+├── config/         Database and Redis connection setup
+├── middleware/     Auth, role guard, rate limiter, validator,
+│                   sanitizer, audit logger, error handler
+├── models/         7 Sequelize database models
+├── routes/         Express route definitions
+├── controllers/    Business logic for each service
+├── services/       PDF generation, email sending, cron jobs,
+│                   S3 file storage
+├── utils/          Joi schemas, placeholder filler, multer config
+├── .env.development  Environment variables
+└── server.js       Application entry point
+
+This separation means each layer has one responsibility.
+Routes just define paths. Controllers handle logic.
+Services handle external integrations.
+This makes the code easy to maintain and scale."
+
+
+----------------------------------------------------------------
+SLIDE 5 — HOW A REQUEST FLOWS THROUGH THE SYSTEM
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Let me explain what happens when a request hits our server.
+
+Step 1 — Request arrives at server.js
+  The request first passes through a chain of middleware:
+  - Helmet adds security headers to every response
+  - CORS checks if the request origin is allowed
+  - Morgan logs the request method and URL
+  - express.json() parses the JSON body (max 10KB to prevent attacks)
+  - sanitizeInput strips any dangerous keys like $ or . from the body
+    to prevent NoSQL injection attacks
+  - rateLimiter checks if the client has exceeded 100 requests
+    per 15 minutes
+  - auditLogger registers a listener to log the action after
+    the response is sent
+
+Step 2 — Route matching
+  Express matches the URL to the correct router.
+  For example: POST /api/offers goes to offerRoutes.js
+
+Step 3 — Middleware chain on the route
+  Each route runs its own middleware:
+  - auth.js verifies the JWT token and attaches req.user
+  - roleGuard.js checks if the user's role is allowed
+  - validate.js runs the Joi schema against req.body
+
+Step 4 — Controller executes
+  The controller function runs the actual business logic —
+  querying the database, calling services, building the response.
+
+Step 5 — Response sent
+  The controller sends back a JSON response.
+  The auditLogger fires on res.finish to save the log entry.
+  The errorHandler catches any unhandled errors and returns
+  a clean error message."
+
+
+----------------------------------------------------------------
+SLIDE 6 — AUTHENTICATION SYSTEM
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Security starts with authentication.
+
+When a user registers, their password is hashed using bcrypt
+with 10 salt rounds before being stored. The plain password
+is never saved anywhere.
+
+When they log in, bcrypt compares the input password with
+the stored hash. If it matches, we generate a JWT token
+signed with our secret key. This token contains the user's
+ID and role, and expires in 7 days.
+
+Every protected route requires this token in the
+Authorization header as: Bearer <token>
+
+The auth middleware extracts the token, verifies it,
+and attaches the decoded user object to req.user.
+All subsequent middleware and controllers can then
+access req.user.id and req.user.role.
+
+The roleGuard middleware then checks if the user's role
+is in the allowed list for that specific route.
+For example, DELETE /api/templates only allows admins.
+If an HR user tries it, they get a 403 Forbidden response."
+
+
+----------------------------------------------------------------
+SLIDE 7 — DATABASE DESIGN
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"The database has 8 tables, each with a clear purpose.
+
+Users           — stores HR and Admin accounts
+Templates       — stores offer letter templates with placeholders
+Template_Versions — every time a template is edited, a new version
+                    is saved automatically. Nothing is lost.
+Candidates      — stores all candidate information
+Offers          — links a candidate to a template, stores status
+                  and salary/joining date
+Offer_Versions  — every generated offer is saved as a version.
+                  Future edits create new versions.
+Scheduled_Emails — stores emails scheduled for future delivery
+Audit_Logs      — records every write action in the system
+
+All primary keys are UUIDs — not sequential integers.
+This is more secure because IDs cannot be guessed or enumerated.
+
+All tables use timestamps. Sequelize handles created_at
+and updated_at automatically."
+
+
+----------------------------------------------------------------
+SLIDE 8 — TEMPLATE SERVICE WITH AUTO-VERSIONING
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"One of the core features is the Template Service.
+
+HR can create offer letter templates using HTML content
+with special placeholder tokens like:
+  {{name}}, {{email}}, {{position}}, {{department}},
+  {{salary}}, {{doj}}
+
+When a template is created, version 1 is automatically saved.
+
+Every time the template content is updated, the system
+automatically increments the version number and saves
+a new version. The HR team can always go back and see
+what the template looked like at any point in time.
+
+This is version control — just like Git, but for templates.
+
+Template list and individual templates are cached in Redis
+for 120 seconds. When a template is created, updated, or
+deleted, the cache is automatically invalidated so the
+next request always gets fresh data."
+
+
+----------------------------------------------------------------
+SLIDE 9 — OFFER GENERATION WITH PLACEHOLDER AUTO-FILL
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"This is the most important feature — offer generation.
+
+The HR user selects a template and a candidate.
+They can optionally override the salary and joining date.
+
+The backend then:
+1. Fetches the template content from the database
+2. Fetches the candidate's details
+3. Runs the fillPlaceholders function which replaces every
+   {{token}} in the template with the actual candidate data
+4. Creates an Offer record in the database with status 'draft'
+5. Saves the filled content as Offer Version 1
+
+The result is a fully personalized offer letter, generated
+in milliseconds, with zero manual typing.
+
+For example, if the template says:
+  'Dear {{name}}, we are pleased to offer you the role of
+   {{position}} in our {{department}} team with a salary
+   of {{salary}} starting from {{doj}}'
+
+And the candidate is Jane Smith, Backend Developer,
+Engineering, 80000, 2025-09-01 —
+
+The output becomes:
+  'Dear Jane Smith, we are pleased to offer you the role of
+   Backend Developer in our Engineering team with a salary
+   of 80000 starting from 2025-09-01'"
+
+
+----------------------------------------------------------------
+SLIDE 10 — STATUS TRACKING WORKFLOW
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Every offer goes through a defined lifecycle.
+
+The status transitions are strictly enforced on the backend:
+
+  draft → generated → sent → viewed → accepted
+                                     → rejected
+  accepted → expired
+
+You cannot skip steps. You cannot go backwards.
+If you try to move from 'draft' directly to 'sent',
+the server returns a 400 error with the list of
+allowed next statuses.
+
+This gives HR complete visibility into where every
+offer stands at any moment.
+
+The status is updated via a PATCH request to
+/api/offers/:id/status with the new status in the body."
+
+
+----------------------------------------------------------------
+SLIDE 11 — EMAIL AND SCHEDULER SERVICE
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Once an offer is ready, HR has two options.
+
+Option 1 — Send immediately
+  POST /api/offers/:id/send
+  The backend fetches the latest offer version content,
+  wraps it in a professional HTML email template,
+  and sends it to the candidate's email using Nodemailer
+  connected to Gmail SMTP or SendGrid.
+  The offer status is automatically updated to 'sent'.
+
+Option 2 — Schedule for later
+  POST /api/offers/:id/schedule
+  HR provides a future datetime. The backend saves this
+  to the ScheduledEmails table with status 'pending'.
+
+  A cron job runs every single minute in the background.
+  It queries all pending scheduled emails where
+  scheduled_at is less than or equal to the current time.
+  For each one, it sends the email, marks it as 'sent',
+  and updates the offer status to 'sent'.
+
+  If the email fails for any reason, it marks the record
+  as 'failed' — so HR knows to retry."
+
+
+----------------------------------------------------------------
+SLIDE 12 — PDF GENERATION WITH WATERMARK
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Candidates often need a PDF copy of their offer letter.
+
+When HR requests a PDF, the backend:
+1. Fetches the latest offer version content (HTML)
+2. Wraps it in a full HTML page with professional styling
+3. If the offer is still in 'draft' status, it adds a
+   diagonal 'DRAFT' watermark across the page
+4. Launches a headless Chrome browser using Puppeteer
+5. Renders the HTML page
+6. Exports it as an A4 PDF with proper margins
+7. Streams the PDF directly to the browser for download
+
+HR can also upload the PDF to AWS S3 for permanent storage
+and get a pre-signed download URL that expires in 1 hour —
+which can be shared with the candidate securely."
+
+
+----------------------------------------------------------------
+SLIDE 13 — ANALYTICS SERVICE
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"The analytics service gives HR managers a data-driven
+view of their hiring pipeline.
+
+Four endpoints are available:
+
+1. Overview — total offers, total candidates, accepted count,
+   rejected count, sent count, and acceptance rate percentage
+
+2. By Status — count of offers in each status, perfect for
+   building pie charts or bar charts on the dashboard
+
+3. By Department — which departments are hiring the most,
+   ordered by offer count descending
+
+4. Over Time — daily offer creation counts, perfect for
+   line charts showing hiring trends over weeks or months
+
+All analytics endpoints are cached in Redis for 30-60 seconds
+so repeated dashboard loads don't hammer the database."
+
+
+----------------------------------------------------------------
+SLIDE 14 — AUDIT LOG SERVICE
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Every write action in the system is automatically logged.
+
+The auditLogger middleware runs on every POST, PUT, PATCH,
+and DELETE request. It listens for the response to finish,
+and only logs successful requests — 4xx and 5xx errors
+are not logged.
+
+Each log entry records:
+- Who did it (user ID and email)
+- What they did (HTTP method and route)
+- Which resource was affected (resource ID)
+- When it happened (timestamp)
+- From which IP address
+
+Admins can retrieve paginated logs via GET /api/logs.
+
+This is critical for compliance, security audits,
+and debugging production issues."
+
+
+----------------------------------------------------------------
+SLIDE 15 — SECURITY LAYERS
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Security is built into every layer of this backend.
+
+1. Helmet — sets 14 HTTP security headers on every response
+   including X-Content-Type-Options, X-Frame-Options,
+   and Strict-Transport-Security
+
+2. CORS — only allows requests from the configured
+   CLIENT_URL, blocking all other origins
+
+3. Body size limit — express.json({ limit: '10kb' })
+   prevents large payload denial-of-service attacks
+
+4. Input sanitization — strips any keys starting with $
+   or containing dots, preventing NoSQL injection
+
+5. Rate limiting — auth routes are limited to 10 requests
+   per 15 minutes to prevent brute force attacks.
+   All other routes are limited to 100 per 15 minutes.
+
+6. Password hashing — bcrypt with 10 salt rounds.
+   Passwords are never stored in plain text.
+
+7. JWT authentication — stateless, signed tokens.
+   No server-side sessions to manage or steal.
+
+8. Role-based access control — every route checks the
+   user's role. HR cannot access admin-only routes.
+
+9. UUID primary keys — resource IDs cannot be guessed
+   or enumerated by attackers."
+
+
+----------------------------------------------------------------
+SLIDE 16 — REDIS CACHING
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Redis is used as an in-memory cache to improve performance.
+
+The cache middleware intercepts GET requests, checks if
+a cached response exists for that URL, and returns it
+instantly without hitting the database.
+
+If no cache exists, the request proceeds normally,
+and the response is stored in Redis with a TTL
+(time to live) before being sent to the client.
+
+Cached routes and their TTLs:
+- Template list and individual templates: 120 seconds
+- Template versions: 60 seconds
+- Analytics overview, by-status, by-department: 30 seconds
+- Analytics over-time: 60 seconds
+
+When templates are created, updated, or deleted,
+the cache is automatically invalidated using pattern
+matching on the Redis keys.
+
+If Redis is unavailable, the system gracefully falls back
+to serving data directly from the database — no crash,
+no downtime."
+
+
+----------------------------------------------------------------
+SLIDE 17 — COMPLETE REQUEST LIFECYCLE DEMO
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Let me walk through a complete real-world scenario.
+
+Scenario: HR wants to send an offer letter to a new candidate.
+
+Step 1 — Login
+  HR posts to /api/auth/login with email and password.
+  Server verifies credentials, returns a JWT token.
+
+Step 2 — Create a Template
+  HR posts to /api/templates with an HTML template
+  containing {{name}}, {{position}}, {{salary}} tokens.
+  Server saves it and creates version 1 automatically.
+
+Step 3 — Add a Candidate
+  HR posts to /api/candidates with the candidate's details.
+  Or uploads a CSV file with 50 candidates at once.
+
+Step 4 — Generate the Offer
+  HR posts to /api/offers with the template ID and
+  candidate ID. The server auto-fills all placeholders
+  and saves the offer as 'draft' with version 1.
+
+Step 5 — Download PDF Preview
+  HR calls GET /api/offers/:id/pdf.
+  Server generates a PDF with 'DRAFT' watermark.
+  HR reviews it.
+
+Step 6 — Update Status to Generated
+  HR patches the status to 'generated'.
+
+Step 7 — Send the Email
+  HR posts to /api/offers/:id/send.
+  Server sends the offer email to the candidate.
+  Status automatically updates to 'sent'.
+
+Step 8 — Candidate Views and Accepts
+  Status is updated to 'viewed', then 'accepted'.
+
+Step 9 — Analytics Updated
+  The acceptance rate in /api/analytics/overview
+  now reflects this new accepted offer.
+
+Step 10 — Audit Log
+  Every action from step 2 onwards is recorded
+  in the audit logs with timestamp and user info.
+
+That is the complete lifecycle — from template creation
+to offer acceptance — all handled by this backend."
+
+
+----------------------------------------------------------------
+SLIDE 18 — DEPLOYMENT ARCHITECTURE
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"For deployment, the system is containerized using Docker.
+
+The pipeline is:
+  GitHub → GitHub Actions CI/CD → Docker build →
+  Cloud Host (AWS / Render / Railway) →
+  Nginx reverse proxy → Node.js server →
+  Neon PostgreSQL → Redis (managed) → AWS S3
+
+Nginx sits in front of the Node.js server as a reverse proxy.
+It handles SSL termination, compression, and load balancing.
+
+The database is Neon — a serverless PostgreSQL provider
+that scales automatically and requires zero maintenance.
+
+Redis can be a managed instance on Redis Cloud or
+AWS ElastiCache in production.
+
+Environment variables are separated into
+.env.development and .env.production files,
+loaded using Node.js built-in --env-file flag —
+no dotenv package needed."
+
+
+----------------------------------------------------------------
+SLIDE 19 — KEY NUMBERS
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"Let me summarize the scale of what was built.
+
+  30 API endpoints across 9 services
+  8 database tables with proper relationships
+  7 middleware layers protecting every request
+  4 analytics endpoints with Redis caching
+  3 PDF endpoints (download, upload to S3, signed URL)
+  2 email modes (immediate send + scheduled)
+  1 cron job running every minute
+  0 plain text passwords stored anywhere
+
+The entire backend was built using ES Modules (import/export),
+runs on Node.js v22, and follows a clean layered architecture
+that is easy to extend, test, and deploy."
+
+
+----------------------------------------------------------------
+SLIDE 20 — CLOSING
+----------------------------------------------------------------
+
+WHAT TO SAY:
+"To summarize —
+
+This backend provides a complete, production-ready API
+for an AI-Powered Offer Letter Builder.
+
+It handles everything from user authentication and
+role-based access control, to template management with
+version history, candidate management with bulk CSV upload,
+offer generation with automatic placeholder filling,
+PDF generation with watermarks, email delivery with
+scheduling, real-time status tracking, analytics,
+Redis caching, and full audit logging.
+
+The system is secure, scalable, and ready to connect
+to any frontend — whether React, mobile, or third-party.
+
+Thank you. I'm happy to take any questions."
+
+
+================================================================
+QUICK REFERENCE — KEY TALKING POINTS
+================================================================
+
+If asked "Why Node.js?"
+  → Non-blocking I/O, perfect for API servers, huge ecosystem,
+    same language as frontend (JavaScript), fast development.
+
+If asked "Why Neon PostgreSQL?"
+  → Serverless, no server to manage, scales to zero when idle,
+    free tier available, standard PostgreSQL so no vendor lock-in.
+
+If asked "Why JWT over sessions?"
+  → Stateless — no server memory needed, works across multiple
+    servers, easy to use in mobile apps and third-party clients.
+
+If asked "Why Redis?"
+  → In-memory storage is 100x faster than database queries.
+    Perfect for caching frequently read, rarely changed data.
+
+If asked "Why Puppeteer for PDF?"
+  → Renders real HTML/CSS to PDF, supports complex layouts,
+    same output as what the user sees in the browser.
+
+If asked "What happens if Redis goes down?"
+  → The app continues working normally. Cache is skipped
+    silently. Only performance is slightly reduced.
+
+If asked "How is the system secured?"
+  → 9 security layers: Helmet, CORS, body limit, input
+    sanitization, rate limiting, bcrypt, JWT, RBAC, UUIDs.
+
+================================================================
+END OF PRESENTATION SCRIPT
+================================================================

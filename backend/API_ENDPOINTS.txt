@@ -1,0 +1,578 @@
+================================================================
+  AI-POWERED OFFER LETTER BUILDER — API ENDPOINTS DOCUMENTATION
+================================================================
+Base URL: http://localhost:5000
+All protected routes require: Authorization: Bearer <JWT_TOKEN>
+================================================================
+
+
+================================================================
+1. AUTH SERVICE — /api/auth
+================================================================
+
+POST /api/auth/register
+-----------------------
+Description : Register a new HR or Admin user
+Auth        : Not required
+Rate Limit  : 10 requests / 15 min
+Request Body:
+  {
+    "name": "John Doe",
+    "email": "john@company.com",
+    "password": "secret123",
+    "role": "hr"           // "hr" or "admin" (default: "hr")
+  }
+Success 201 :
+  {
+    "message": "User registered",
+    "user": { "id", "name", "email", "role" }
+  }
+Errors      : 409 Email already registered | 400 Validation error
+
+
+POST /api/auth/login
+--------------------
+Description : Login and receive a JWT token
+Auth        : Not required
+Rate Limit  : 10 requests / 15 min
+Request Body:
+  {
+    "email": "john@company.com",
+    "password": "secret123"
+  }
+Success 200 :
+  {
+    "token": "<jwt_token>",
+    "user": { "id", "name", "email", "role" }
+  }
+Errors      : 401 Invalid credentials | 400 Validation error
+
+
+GET /api/auth/me
+----------------
+Description : Get the currently logged-in user's profile
+Auth        : Required (any role)
+Headers     : Authorization: Bearer <token>
+Success 200 :
+  {
+    "id", "name", "email", "role", "created_at"
+  }
+Errors      : 401 No token | 404 User not found
+
+
+================================================================
+2. USER SERVICE — /api/users
+================================================================
+All routes require: JWT + role = admin
+
+GET /api/users
+--------------
+Description : Get list of all registered users
+Auth        : Required (admin only)
+Success 200 : Array of users (no passwords)
+  [{ "id", "name", "email", "role", "created_at" }]
+
+
+GET /api/users/:id
+------------------
+Description : Get a single user by ID
+Auth        : Required (admin only)
+Params      : id = UUID of the user
+Success 200 : { "id", "name", "email", "role", "created_at" }
+Errors      : 404 User not found
+
+
+PUT /api/users/:id
+------------------
+Description : Update a user's name or role
+Auth        : Required (admin only)
+Params      : id = UUID of the user
+Request Body (at least one field):
+  {
+    "name": "New Name",
+    "role": "admin"        // "admin" or "hr"
+  }
+Success 200 :
+  { "message": "User updated", "user": { "id", "name", "email", "role" } }
+Errors      : 404 User not found | 400 Validation error
+
+
+DELETE /api/users/:id
+---------------------
+Description : Delete a user (cannot delete yourself)
+Auth        : Required (admin only)
+Params      : id = UUID of the user
+Success 200 : { "message": "User deleted" }
+Errors      : 404 User not found | 400 Cannot delete yourself
+
+
+================================================================
+3. TEMPLATE SERVICE — /api/templates
+================================================================
+All routes require: JWT + role = admin or hr
+
+GET /api/templates
+------------------
+Description : Get all templates (newest first)
+Auth        : Required (admin, hr)
+Cache       : 120 seconds Redis cache
+Success 200 : Array of templates
+  [{ "id", "name", "content", "created_by", "created_at", "updated_at" }]
+
+
+GET /api/templates/:id
+----------------------
+Description : Get a single template by ID
+Auth        : Required (admin, hr)
+Cache       : 120 seconds Redis cache
+Params      : id = UUID of the template
+Success 200 : { "id", "name", "content", "created_by", "created_at", "updated_at" }
+Errors      : 404 Template not found
+
+
+GET /api/templates/:id/versions
+--------------------------------
+Description : Get all saved versions of a template (newest first)
+Auth        : Required (admin, hr)
+Cache       : 60 seconds Redis cache
+Params      : id = UUID of the template
+Success 200 : Array of versions
+  [{ "id", "template_id", "version_no", "content", "created_at" }]
+
+
+POST /api/templates
+-------------------
+Description : Create a new template. Automatically saves version 1.
+              Use {{name}}, {{email}}, {{position}}, {{department}},
+              {{salary}}, {{doj}} as placeholders in content.
+Auth        : Required (admin, hr)
+Request Body:
+  {
+    "name": "Software Engineer Offer",
+    "content": "<p>Dear {{name}}, you are hired as {{position}}...</p>"
+  }
+Success 201 : Created template object
+Errors      : 400 Validation error
+Cache       : Invalidates all /api/templates cache on success
+
+
+PUT /api/templates/:id
+----------------------
+Description : Update a template. If content is changed, a new version
+              is automatically saved.
+Auth        : Required (admin, hr)
+Params      : id = UUID of the template
+Request Body (at least one field):
+  {
+    "name": "Updated Name",
+    "content": "<p>Updated content...</p>"
+  }
+Success 200 : Updated template object
+Errors      : 404 Template not found | 400 Validation error
+Cache       : Invalidates all /api/templates cache on success
+
+
+DELETE /api/templates/:id
+--------------------------
+Description : Delete a template permanently
+Auth        : Required (admin only)
+Params      : id = UUID of the template
+Success 200 : { "message": "Template deleted" }
+Errors      : 404 Template not found
+Cache       : Invalidates all /api/templates cache on success
+
+
+================================================================
+4. CANDIDATE SERVICE — /api/candidates
+================================================================
+All routes require: JWT + role = admin or hr
+
+GET /api/candidates
+-------------------
+Description : Get all candidates with optional filters
+Auth        : Required (admin, hr)
+Query Params:
+  ?department=Engineering
+  ?position=Developer
+  ?search=john          (searches name and email, case-insensitive)
+Success 200 : Array of candidates
+  [{ "id", "name", "email", "position", "department", "doj", "salary", "created_at" }]
+
+
+GET /api/candidates/:id
+-----------------------
+Description : Get a single candidate by ID
+Auth        : Required (admin, hr)
+Params      : id = UUID of the candidate
+Success 200 : Candidate object
+Errors      : 404 Candidate not found
+
+
+POST /api/candidates
+--------------------
+Description : Add a single candidate manually
+Auth        : Required (admin, hr)
+Request Body:
+  {
+    "name": "Jane Smith",           // required
+    "email": "jane@example.com",    // required, must be unique
+    "position": "Backend Developer",
+    "department": "Engineering",
+    "doj": "2025-08-01",            // ISO date
+    "salary": "80000"
+  }
+Success 201 : Created candidate object
+Errors      : 409 Email already exists | 400 Validation error
+
+
+POST /api/candidates/bulk
+--------------------------
+Description : Upload multiple candidates via CSV file
+Auth        : Required (admin, hr)
+Content-Type: multipart/form-data
+Form Field  : file = <csv_file>
+CSV Format  :
+  name,email,position,department,doj,salary
+  John Doe,john@example.com,Developer,Engineering,2025-01-01,50000
+File Limit  : 5MB, CSV only
+Success 201 :
+  {
+    "created": 10,
+    "skipped": 2,
+    "errors": [{ "row": {...}, "reason": "email already exists" }]
+  }
+
+
+PUT /api/candidates/:id
+-----------------------
+Description : Update candidate details
+Auth        : Required (admin, hr)
+Params      : id = UUID of the candidate
+Request Body (at least one field):
+  {
+    "name", "email", "position", "department", "doj", "salary"
+  }
+Success 200 : Updated candidate object
+Errors      : 404 Candidate not found | 400 Validation error
+
+
+DELETE /api/candidates/:id
+--------------------------
+Description : Delete a candidate permanently
+Auth        : Required (admin, hr)
+Params      : id = UUID of the candidate
+Success 200 : { "message": "Candidate deleted" }
+Errors      : 404 Candidate not found
+
+
+================================================================
+5. OFFER SERVICE — /api/offers
+================================================================
+All routes require: JWT + role = admin or hr
+
+GET /api/offers
+---------------
+Description : Get all offers with optional status filter
+Auth        : Required (admin, hr)
+Query Params: ?status=draft | generated | sent | viewed | accepted | rejected | expired
+Success 200 : Array of offers with candidate and template info
+  [{ "id", "status", "salary", "doj", "created_at", "candidate": {...}, "template": {...} }]
+
+
+GET /api/offers/:id
+-------------------
+Description : Get a single offer with full candidate and template details
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Success 200 : Full offer object with nested candidate and template
+Errors      : 404 Offer not found
+
+
+GET /api/offers/:id/versions
+-----------------------------
+Description : Get all saved versions of an offer letter (newest first)
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Success 200 : Array of offer versions
+  [{ "id", "offer_id", "version_no", "content", "created_at" }]
+
+
+POST /api/offers
+----------------
+Description : Generate a new offer letter. Fetches template content,
+              auto-fills all placeholders ({{name}}, {{email}},
+              {{position}}, {{department}}, {{salary}}, {{doj}})
+              using candidate data. Saves as version 1 with status "draft".
+Auth        : Required (admin, hr)
+Request Body:
+  {
+    "candidate_id": "<uuid>",    // required
+    "template_id": "<uuid>",     // required
+    "salary": "90000",           // optional, overrides candidate salary
+    "doj": "2025-09-01"          // optional, overrides candidate doj
+  }
+Success 201 :
+  {
+    "offer": { offer object },
+    "content": "<filled HTML content>"
+  }
+Errors      : 404 Candidate/Template not found | 400 Validation error
+
+
+PATCH /api/offers/:id/status
+-----------------------------
+Description : Update the status of an offer. Only valid transitions allowed:
+              draft → generated → sent → viewed → accepted/rejected
+              accepted → expired
+              rejected and expired are terminal (no further transitions)
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Request Body:
+  {
+    "status": "generated"
+  }
+Success 200 : { "message": "Status updated", "offer": { updated offer } }
+Errors      : 400 Invalid transition (includes "allowed" next statuses)
+              404 Offer not found
+
+
+================================================================
+6. EMAIL & SCHEDULER SERVICE — /api/offers
+================================================================
+All routes require: JWT + role = admin or hr
+
+POST /api/offers/:id/send
+--------------------------
+Description : Immediately send the offer letter to the candidate's email.
+              Uses the latest version of the offer content as email body.
+              Updates offer status to "sent" after sending.
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Success 200 : { "message": "Offer email sent successfully" }
+Errors      : 404 Offer not found | 500 Email send failure
+
+
+POST /api/offers/:id/schedule
+------------------------------
+Description : Schedule the offer email to be sent at a future date/time.
+              A cron job runs every minute and sends all due scheduled emails.
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Request Body:
+  {
+    "scheduled_at": "2025-08-01T10:00:00.000Z"   // must be future datetime
+  }
+Success 201 :
+  {
+    "message": "Email scheduled",
+    "scheduled": { "id", "offer_id", "scheduled_at", "status" }
+  }
+Errors      : 404 Offer not found | 400 Validation error (past date)
+
+
+GET /api/offers/:id/scheduled
+------------------------------
+Description : Get all scheduled email records for a specific offer
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Success 200 : Array of scheduled email records
+  [{ "id", "offer_id", "status", "scheduled_at", "updated_by", "comments" }]
+
+
+================================================================
+7. PDF SERVICE — /api/offers
+================================================================
+All routes require: JWT + role = admin or hr
+
+GET /api/offers/:id/pdf
+------------------------
+Description : Generate a PDF from the latest offer version and stream it
+              directly to the browser for download. If offer status is
+              "draft", a diagonal "DRAFT" watermark is added to the PDF.
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Response    : Binary PDF file (application/pdf)
+Headers     : Content-Disposition: attachment; filename="offer-<id>.pdf"
+Errors      : 404 Offer not found | 404 No offer content found
+
+
+POST /api/offers/:id/pdf/upload
+--------------------------------
+Description : Generate a PDF and upload it to AWS S3. Returns the S3 URL.
+              File is stored at: offers/<offer_id>/offer-v<version_no>.pdf
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Success 200 :
+  {
+    "message": "PDF uploaded to S3",
+    "url": "https://bucket.s3.region.amazonaws.com/offers/.../offer-v1.pdf"
+  }
+Errors      : 404 Offer not found | 500 S3 upload failure
+
+
+GET /api/offers/:id/pdf/url
+----------------------------
+Description : Get a pre-signed S3 download URL for a specific offer PDF.
+              URL expires in 1 hour (3600 seconds).
+Auth        : Required (admin, hr)
+Params      : id = UUID of the offer
+Query Params: ?version=1   (default: 1)
+Success 200 : { "url": "<signed_s3_url>" }
+Errors      : 500 S3 error
+
+
+================================================================
+8. ANALYTICS SERVICE — /api/analytics
+================================================================
+All routes require: JWT + role = admin or hr
+All routes are Redis cached (30-60 seconds)
+
+GET /api/analytics/overview
+----------------------------
+Description : Get a high-level dashboard summary including total offers,
+              total candidates, accepted/rejected/sent counts, and
+              overall acceptance rate percentage.
+Auth        : Required (admin, hr)
+Cache       : 30 seconds
+Success 200 :
+  {
+    "total": 50,
+    "totalCandidates": 45,
+    "accepted": 20,
+    "rejected": 5,
+    "sent": 15,
+    "acceptanceRate": "40.0%"
+  }
+
+
+GET /api/analytics/by-status
+------------------------------
+Description : Get count of offers grouped by each status value.
+              Useful for pie/bar charts on the dashboard.
+Auth        : Required (admin, hr)
+Cache       : 30 seconds
+Success 200 :
+  [
+    { "status": "draft", "count": "10" },
+    { "status": "sent", "count": "15" },
+    { "status": "accepted", "count": "20" }
+  ]
+
+
+GET /api/analytics/by-department
+----------------------------------
+Description : Get count of offers grouped by candidate department.
+              Results ordered by count descending.
+Auth        : Required (admin, hr)
+Cache       : 30 seconds
+Success 200 :
+  [
+    { "department": "Engineering", "count": "20" },
+    { "department": "HR", "count": "8" }
+  ]
+
+
+GET /api/analytics/over-time
+------------------------------
+Description : Get daily offer creation counts over time.
+              Useful for line/area charts showing offer trends.
+Auth        : Required (admin, hr)
+Cache       : 60 seconds
+Success 200 :
+  [
+    { "date": "2025-01-01T00:00:00.000Z", "count": "5" },
+    { "date": "2025-01-02T00:00:00.000Z", "count": "8" }
+  ]
+
+
+================================================================
+9. AUDIT LOG SERVICE — /api/logs
+================================================================
+
+GET /api/logs
+-------------
+Description : Get paginated audit logs of all write actions (POST, PUT,
+              PATCH, DELETE) performed in the system. Only successful
+              requests are logged (4xx/5xx are excluded).
+              Each log entry records: who did it, what route, what method,
+              which resource ID, and from which IP address.
+Auth        : Required (admin only)
+Query Params:
+  ?page=1       (default: 1)
+  ?limit=50     (default: 50)
+Success 200 :
+  {
+    "total": 120,
+    "page": 1,
+    "pages": 3,
+    "logs": [
+      {
+        "id": "<uuid>",
+        "user_id": "<uuid>",
+        "user_email": "hr@company.com",
+        "method": "POST",
+        "route": "/api/offers",
+        "action": "POST /",
+        "resource_id": "<uuid>",
+        "ip": "::1",
+        "created_at": "2025-07-01T10:00:00.000Z"
+      }
+    ]
+  }
+
+
+================================================================
+GLOBAL NOTES
+================================================================
+
+Authentication
+--------------
+- All protected routes require: Authorization: Bearer <JWT_TOKEN>
+- JWT token is obtained from POST /api/auth/login
+- Token expires based on JWT_EXPIRES_IN env var (default: 7d)
+
+Rate Limiting
+-------------
+- Auth routes (/api/auth/login, /api/auth/register): 10 req / 15 min
+- All other routes: 100 req / 15 min
+
+Input Validation
+----------------
+- All POST/PUT routes validate request body using Joi schemas
+- Validation errors return 400 with array of error messages:
+  { "message": "Validation error", "errors": ["field is required"] }
+
+Error Responses
+---------------
+- 400 Bad Request     — Validation failed or invalid input
+- 401 Unauthorized    — Missing or invalid JWT token
+- 403 Forbidden       — Valid token but insufficient role
+- 404 Not Found       — Resource does not exist
+- 409 Conflict        — Duplicate email or resource
+- 500 Internal Error  — Server/DB/external service failure
+
+Caching (Redis)
+---------------
+- Template list and individual templates: cached 120s
+- Template versions: cached 60s
+- Analytics endpoints: cached 30-60s
+- Cache is automatically invalidated when templates are modified
+
+Status Transition Rules
+-----------------------
+draft → generated → sent → viewed → accepted → expired
+                                  → rejected  (terminal)
+expired (terminal — no further transitions)
+
+Placeholder Tokens (in template content)
+-----------------------------------------
+{{name}}        → candidate.name
+{{email}}       → candidate.email
+{{position}}    → candidate.position
+{{department}}  → candidate.department
+{{salary}}      → offer.salary or candidate.salary
+{{doj}}         → offer.doj or candidate.doj
+
+================================================================
+Total Endpoints: 30
+================================================================
