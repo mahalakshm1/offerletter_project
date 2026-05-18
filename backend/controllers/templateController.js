@@ -1,4 +1,5 @@
 import { Template, TemplateVersion } from '../models/index.js';
+import { invalidateCache } from '../middleware/cache.js';
 
 export const getAllTemplates = async (req, res) => {
   const templates = await Template.findAll({ order: [['created_at', 'DESC']] });
@@ -16,7 +17,7 @@ export const createTemplate = async (req, res) => {
   const template = await Template.create({ name, content, created_by: req.user.id });
 
   await TemplateVersion.create({ template_id: template.id, version_no: 1, content });
-
+  await invalidateCache('/api/templates*');
   res.status(201).json(template);
 };
 
@@ -34,6 +35,7 @@ export const updateTemplate = async (req, res) => {
   }
 
   await template.update(req.body);
+  await invalidateCache('/api/templates*');
   res.json(template);
 };
 
@@ -41,6 +43,7 @@ export const deleteTemplate = async (req, res) => {
   const template = await Template.findByPk(req.params.id);
   if (!template) return res.status(404).json({ message: 'Template not found' });
   await template.destroy();
+  await invalidateCache('/api/templates*');
   res.json({ message: 'Template deleted' });
 };
 

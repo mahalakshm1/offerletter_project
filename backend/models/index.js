@@ -6,10 +6,11 @@ import Candidate from './Candidate.js';
 import Offer from './Offer.js';
 import OfferVersion from './OfferVersion.js';
 import ScheduledEmail from './ScheduledEmail.js';
+import AuditLog from './AuditLog.js';
 
 const syncDB = async () => {
   await sequelize.sync({ alter: true });
   console.log('All models synced to Neon DB');
 };
 
-export { sequelize, syncDB, User, Template, TemplateVersion, Candidate, Offer, OfferVersion, ScheduledEmail };
+export { sequelize, syncDB, User, Template, TemplateVersion, Candidate, Offer, OfferVersion, ScheduledEmail, AuditLog };
