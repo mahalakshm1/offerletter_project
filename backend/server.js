@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { syncDB } from './models/index.js';
-import redis from './config/redis.js';
 import rateLimiter from './middleware/rateLimiter.js';
 import auditLogger from './middleware/auditLogger.js';
 import sanitizeInput from './middleware/sanitize.js';
@@ -65,7 +64,6 @@ app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 app.use(errorHandler);
 
 const start = async () => {
-  try { await redis.connect(); } catch { console.warn('Redis unavailable — cache disabled'); }
   await syncDB();
   startCronJobs();
   app.listen(PORT, () => console.log(`Server running on port ${PORT} [${process.env.NODE_ENV}]`));

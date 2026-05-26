@@ -73,7 +73,6 @@ export const updateOfferStatus = async (req, res) => {
   }
 
   await offer.update({ status });
-  await invalidateCache('/api/analytics*');
   res.json({ message: 'Status updated', offer });
 };
 

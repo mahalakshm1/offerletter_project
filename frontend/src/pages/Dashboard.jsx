@@ -34,13 +34,8 @@ export default function Dashboard() {
   return (
     <div>
       <div className="page-header">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Overview of your offer letter activity</p>
-        </div>
-        <button className="btn btn-primary" onClick={load} disabled={loading}>
-          {loading ? '⏳ Refreshing...' : '🔄 Refresh'}
-        </button>
+        <h1>Dashboard</h1>
+        <p>Overview of your offer letter activity</p>
       </div>
 
       {overview && (
