@@ -28,7 +28,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.10.1",
     "pg": "^8.13.3",
-    "puppeteer": "^25.0.3",
+    "puppeteer-core": "^25.1.0",
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.2"
   }

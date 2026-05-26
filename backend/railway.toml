@@ -1,12 +1,17 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci --ignore-scripts"
+buildCommand = "npm ci"
+
+[build.env]
+PUPPETEER_SKIP_DOWNLOAD = "true"
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+NPM_CONFIG_IGNORE_SCRIPTS = "false"
 
 [deploy]
 startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
-[build.env]
+[deploy.env]
 PUPPETEER_SKIP_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium-browser"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
