@@ -1,5 +1,4 @@
 import puppeteer from 'puppeteer-core';
-import { executablePath } from 'puppeteer-core';
 
 const buildOfferHTML = ({ name, email, position, department, salary, doj, companyName, offerDate, status, logoUrl }) => {
   const isDraft = status === 'draft';
@@ -266,9 +265,26 @@ const buildOfferHTML = ({ name, email, position, department, salary, doj, compan
 };
 
 const generatePDF = async (data) => {
+  const chromiumPaths = [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/nix/var/nix/profiles/default/bin/chromium',
+    '/root/.nix-profile/bin/chromium',
+  ];
+
+  let execPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (!execPath) {
+    const { execSync } = await import('child_process');
+    try { execPath = execSync('which chromium || which chromium-browser || which google-chrome', { encoding: 'utf8' }).trim(); } catch {}
+  }
+  if (!execPath) execPath = chromiumPaths.find(p => { try { require('fs').accessSync(p); return true; } catch { return false; } });
+
+  console.log('Using chromium at:', execPath);
+
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || executablePath(),
+    executablePath: execPath,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
   });
 
