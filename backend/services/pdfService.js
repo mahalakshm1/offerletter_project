@@ -265,27 +265,37 @@ const buildOfferHTML = ({ name, email, position, department, salary, doj, compan
 };
 
 const generatePDF = async (data) => {
-  const chromiumPaths = [
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/google-chrome',
-    '/nix/var/nix/profiles/default/bin/chromium',
-    '/root/.nix-profile/bin/chromium',
-  ];
+  const { execSync } = await import('child_process');
+  const { existsSync } = await import('fs');
 
   let execPath = process.env.PUPPETEER_EXECUTABLE_PATH;
-  if (!execPath) {
-    const { execSync } = await import('child_process');
-    try { execPath = execSync('which chromium || which chromium-browser || which google-chrome', { encoding: 'utf8' }).trim(); } catch {}
-  }
-  if (!execPath) execPath = chromiumPaths.find(p => { try { require('fs').accessSync(p); return true; } catch { return false; } });
 
-  console.log('Using chromium at:', execPath);
+  if (!execPath) {
+    const knownPaths = [
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/nix/var/nix/profiles/default/bin/chromium',
+      '/root/.nix-profile/bin/chromium',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+    ];
+    execPath = knownPaths.find(p => existsSync(p));
+  }
+
+  if (!execPath) {
+    try {
+      execPath = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome 2>/dev/null', { encoding: 'utf8' }).trim();
+    } catch {}
+  }
+
+  console.log('Using chromium at:', execPath || 'NOT FOUND');
+
+  if (!execPath) throw new Error('Chromium not found on this system');
 
   const browser = await puppeteer.launch({
     headless: true,
     executablePath: execPath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
   });
 
   const page = await browser.newPage();
