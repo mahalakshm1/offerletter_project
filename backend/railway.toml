@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install && find /nix -name 'chromium' -type f 2>/dev/null | head -5 && find /usr -name 'chromium*' -type f 2>/dev/null | head -5"
+buildCommand = "npm install"
 
 [build.env]
 PUPPETEER_CACHE_DIR = "/app/.cache/puppeteer"

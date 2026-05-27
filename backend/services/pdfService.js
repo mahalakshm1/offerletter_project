@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 const buildOfferHTML = ({ name, email, position, department, salary, doj, companyName, offerDate, status, logoUrl }) => {
   const isDraft = status === 'draft';
@@ -265,37 +266,13 @@ const buildOfferHTML = ({ name, email, position, department, salary, doj, compan
 };
 
 const generatePDF = async (data) => {
-  const execPath = process.env.PUPPETEER_EXECUTABLE_PATH ||
-    (() => {
-      const { execSync } = require('child_process');
-      const { existsSync } = require('fs');
-      const paths = [
-        '/root/.nix-profile/bin/chromium',
-        '/nix/var/nix/profiles/default/bin/chromium',
-        '/usr/lib/chromium/chromium',
-        '/usr/lib/chromium-browser/chromium-browser',
-      ];
-      const found = paths.find(p => existsSync(p));
-      if (found) return found;
-      try { return execSync('readlink -f $(nix-build --no-out-link "<nixpkgs>" -A chromium)/bin/chromium 2>/dev/null', { encoding: 'utf8' }).trim(); } catch {}
-      try { return execSync('ls /nix/store/*/bin/chromium 2>/dev/null | head -1', { encoding: 'utf8' }).trim(); } catch {}
-      return null;
-    })();
-  console.log('Using chromium at:', execPath || 'NOT FOUND');
+  const execPath = process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath();
+  console.log('Using chromium at:', execPath);
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: chromium.headless,
     executablePath: execPath,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--no-zygote',
-      '--single-process',
-      '--disable-extensions',
-      '--disable-software-rasterizer',
-    ],
+    args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
 
   const page = await browser.newPage();
