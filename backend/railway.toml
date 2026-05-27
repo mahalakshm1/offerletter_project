@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci"
+buildCommand = "npm install"
 
 [build.env]
 PUPPETEER_SKIP_DOWNLOAD = "true"
