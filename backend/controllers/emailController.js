@@ -16,27 +16,32 @@ const buildPdfData = (offer, candidate) => ({
 });
 
 export const sendOffer = async (req, res) => {
-  const offer = await Offer.findByPk(req.params.id, {
-    include: [{ model: Candidate, as: 'candidate' }],
-  });
-  if (!offer) return res.status(404).json({ message: 'Offer not found' });
+  try {
+    const offer = await Offer.findByPk(req.params.id, {
+      include: [{ model: Candidate, as: 'candidate' }],
+    });
+    if (!offer) return res.status(404).json({ message: 'Offer not found' });
 
-  const latestVersion = await OfferVersion.findOne({
-    where: { offer_id: offer.id },
-    order: [['version_no', 'DESC']],
-  });
+    const latestVersion = await OfferVersion.findOne({
+      where: { offer_id: offer.id },
+      order: [['version_no', 'DESC']],
+    });
 
-  const pdfBuffer = await generatePDF(buildPdfData(offer, offer.candidate));
+    const pdfBuffer = await generatePDF(buildPdfData(offer, offer.candidate));
 
-  await sendOfferEmail({
-    to: offer.candidate.email,
-    candidateName: offer.candidate.name,
-    offerContent: latestVersion?.content || '',
-    pdfBuffer,
-  });
+    await sendOfferEmail({
+      to: offer.candidate.email,
+      candidateName: offer.candidate.name,
+      offerContent: latestVersion?.content || '',
+      pdfBuffer,
+    });
 
-  await offer.update({ status: 'sent' });
-  res.json({ message: 'Offer email sent with PDF attachment' });
+    await offer.update({ status: 'sent' });
+    res.json({ message: 'Offer email sent with PDF attachment' });
+  } catch (err) {
+    console.error('Send offer error:', err.message);
+    res.status(500).json({ message: 'Failed to send offer', error: err.message });
+  }
 };
 
 export const scheduleOffer = async (req, res) => {
