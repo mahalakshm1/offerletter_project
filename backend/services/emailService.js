@@ -1,7 +1,7 @@
-import * as Brevo from '@getbrevo/brevo';
+import Brevo from '@getbrevo/brevo';
 
 const apiInstance = new Brevo.TransactionalEmailsApi();
-apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+apiInstance.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
 
 const sendOfferEmail = async ({ to, candidateName, offerContent, pdfBuffer }) => {
   const email = new Brevo.SendSmtpEmail();
