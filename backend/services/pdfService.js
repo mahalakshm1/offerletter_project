@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { executablePath } from 'puppeteer-core';
 
 const buildOfferHTML = ({ name, email, position, department, salary, doj, companyName, offerDate, status, logoUrl }) => {
   const isDraft = status === 'draft';
@@ -267,7 +268,7 @@ const buildOfferHTML = ({ name, email, position, department, salary, doj, compan
 const generatePDF = async (data) => {
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || executablePath(),
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
   });
 

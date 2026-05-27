@@ -3,9 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "npm install"
 
 [build.env]
-PUPPETEER_SKIP_DOWNLOAD = "true"
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-NPM_CONFIG_IGNORE_SCRIPTS = "false"
+PUPPETEER_CACHE_DIR = "/app/.cache/puppeteer"
 
 [deploy]
 startCommand = "npm start"
@@ -13,5 +11,4 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
 [deploy.env]
-PUPPETEER_SKIP_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
+PUPPETEER_CACHE_DIR = "/app/.cache/puppeteer"
