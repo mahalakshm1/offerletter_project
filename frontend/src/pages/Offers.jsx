@@ -52,11 +52,18 @@ export default function Offers() {
     catch (err) { alert(err.response?.data?.message || 'Failed to send email'); }
   };
 
-  const downloadPdf = (id) => {
-    const token = localStorage.getItem('token');
-    fetch(`${import.meta.env.VITE_API_URL}/api/offers/${id}/pdf`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.blob())
-      .then((blob) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `offer-${id}.pdf`; a.click(); });
+  const downloadPdf = async (id) => {
+    try {
+      const res = await api.get(`/api/offers/${id}/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `offer-${id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to download PDF');
+    }
   };
 
   return (
