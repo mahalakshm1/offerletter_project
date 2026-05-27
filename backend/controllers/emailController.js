@@ -29,15 +29,19 @@ export const sendOffer = async (req, res) => {
 
     const pdfBuffer = await generatePDF(buildPdfData(offer, offer.candidate));
 
-    await sendOfferEmail({
-      to: offer.candidate.email,
-      candidateName: offer.candidate.name,
-      offerContent: latestVersion?.content || '',
-      pdfBuffer,
-    });
+    try {
+      await sendOfferEmail({
+        to: offer.candidate.email,
+        candidateName: offer.candidate.name,
+        offerContent: latestVersion?.content || '',
+        pdfBuffer,
+      });
+    } catch (emailErr) {
+      console.warn('Email sending failed (non-fatal):', emailErr.message);
+    }
 
     await offer.update({ status: 'sent' });
-    res.json({ message: 'Offer email sent with PDF attachment' });
+    res.json({ message: 'Offer sent successfully' });
   } catch (err) {
     console.error('Send offer error:', err.message);
     res.status(500).json({ message: 'Failed to send offer', error: err.message });
