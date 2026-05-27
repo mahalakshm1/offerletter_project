@@ -265,32 +265,8 @@ const buildOfferHTML = ({ name, email, position, department, salary, doj, compan
 };
 
 const generatePDF = async (data) => {
-  const { execSync } = await import('child_process');
-  const { existsSync } = await import('fs');
-
-  let execPath = process.env.PUPPETEER_EXECUTABLE_PATH;
-
-  if (!execPath) {
-    const knownPaths = [
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/nix/var/nix/profiles/default/bin/chromium',
-      '/root/.nix-profile/bin/chromium',
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-    ];
-    execPath = knownPaths.find(p => existsSync(p));
-  }
-
-  if (!execPath) {
-    try {
-      execPath = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome 2>/dev/null', { encoding: 'utf8' }).trim();
-    } catch {}
-  }
-
-  console.log('Using chromium at:', execPath || 'NOT FOUND');
-
-  if (!execPath) throw new Error('Chromium not found on this system');
+  const execPath = process.env.PUPPETEER_EXECUTABLE_PATH || '/bin/chromium-browser';
+  console.log('Using chromium at:', execPath);
 
   const browser = await puppeteer.launch({
     headless: true,

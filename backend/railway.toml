@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install && echo 'CHROMIUM PATH:' && which chromium || which chromium-browser || echo 'not found'"
+buildCommand = "npm install"
 
 [build.env]
 PUPPETEER_CACHE_DIR = "/app/.cache/puppeteer"
